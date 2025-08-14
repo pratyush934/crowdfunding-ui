@@ -1,0 +1,654 @@
+{
+  "address": "HbD9TyCRmTboM3QuL2h227hEhzKBfL3CTgqtohtGKP92",
+  "metadata": {
+    "name": "governance",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "add_verified_user",
+      "docs": [
+        "NEW INSTRUCTION: An admin can add a new verified user."
+      ],
+      "discriminator": [
+        126,
+        135,
+        209,
+        24,
+        87,
+        111,
+        27,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "verified_user",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  114,
+                  105,
+                  102,
+                  105,
+                  101,
+                  100,
+                  95,
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_to_verify"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_to_verify"
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cast_vote",
+      "discriminator": [
+        20,
+        212,
+        15,
+        189,
+        69,
+        180,
+        69,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "proposal",
+          "writable": true
+        },
+        {
+          "name": "voter",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "voter_bond_account"
+        },
+        {
+          "name": "vote_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "proposal.id",
+                "account": "Proposal"
+              },
+              {
+                "kind": "account",
+                "path": "voter"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vote_yes",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "create_bond_via_cpi",
+      "discriminator": [
+        229,
+        18,
+        126,
+        249,
+        71,
+        120,
+        203,
+        141
+      ],
+      "accounts": [
+        {
+          "name": "proposal",
+          "writable": true
+        },
+        {
+          "name": "proposer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "proposal"
+          ]
+        },
+        {
+          "name": "new_bond_account",
+          "writable": true
+        },
+        {
+          "name": "on_chain_program",
+          "address": "6hPPwfMV5yMR6pCvg1kt2JaAT5FSRjnefuYQ74s62XLL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_proposal",
+      "docs": [
+        "MODIFIED: Now requires the proposer to be verified."
+      ],
+      "discriminator": [
+        132,
+        116,
+        68,
+        174,
+        216,
+        160,
+        198,
+        22
+      ],
+      "accounts": [
+        {
+          "name": "governance_state",
+          "writable": true
+        },
+        {
+          "name": "proposal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112,
+                  111,
+                  115,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "governance_state.proposal_count",
+                "account": "GovernanceState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "proposer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "verified_user",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  114,
+                  105,
+                  102,
+                  105,
+                  101,
+                  100,
+                  95,
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "proposer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "bond_purpose",
+          "type": "string"
+        },
+        {
+          "name": "bond_sector",
+          "type": "string"
+        },
+        {
+          "name": "bond_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "execute_proposal",
+      "discriminator": [
+        186,
+        60,
+        116,
+        133,
+        108,
+        128,
+        111,
+        28
+      ],
+      "accounts": [
+        {
+          "name": "proposal",
+          "writable": true
+        },
+        {
+          "name": "governance_state"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_governance",
+      "discriminator": [
+        171,
+        87,
+        101,
+        237,
+        27,
+        107,
+        201,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "governance_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  111,
+                  118,
+                  101,
+                  114,
+                  110,
+                  97,
+                  110,
+                  99,
+                  101,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "voting_period",
+          "type": "i64"
+        },
+        {
+          "name": "quorum_votes",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BondAccount",
+      "discriminator": [
+        140,
+        228,
+        237,
+        10,
+        239,
+        187,
+        187,
+        64
+      ]
+    },
+    {
+      "name": "GovernanceState",
+      "discriminator": [
+        29,
+        155,
+        54,
+        196,
+        179,
+        215,
+        224,
+        121
+      ]
+    },
+    {
+      "name": "Proposal",
+      "discriminator": [
+        26,
+        94,
+        189,
+        187,
+        116,
+        136,
+        53,
+        33
+      ]
+    },
+    {
+      "name": "VerifiedUser",
+      "discriminator": [
+        197,
+        144,
+        184,
+        72,
+        82,
+        65,
+        99,
+        144
+      ]
+    },
+    {
+      "name": "VoteRecord",
+      "discriminator": [
+        112,
+        9,
+        123,
+        165,
+        234,
+        9,
+        157,
+        167
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotBondHolder",
+      "msg": "You are not a bond holder and cannot vote."
+    },
+    {
+      "code": 6001,
+      "name": "ProposalNotActive",
+      "msg": "This proposal is not active for voting."
+    },
+    {
+      "code": 6002,
+      "name": "VotingPeriodEnded",
+      "msg": "The voting period has ended for this proposal."
+    },
+    {
+      "code": 6003,
+      "name": "VotingPeriodNotOver",
+      "msg": "The voting period is not over yet."
+    },
+    {
+      "code": 6004,
+      "name": "VoteFailed",
+      "msg": "Proposal did not receive enough yes votes to pass."
+    },
+    {
+      "code": 6005,
+      "name": "QuorumNotReached",
+      "msg": "The minimum quorum of votes was not reached."
+    },
+    {
+      "code": 6006,
+      "name": "ProposalNotSucceeded",
+      "msg": "This proposal has not passed the vote yet."
+    },
+    {
+      "code": 6007,
+      "name": "UserNotVerified",
+      "msg": "The user creating the proposal is not verified."
+    }
+  ],
+  "types": [
+    {
+      "name": "BondAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "The public key of the current owner/controller of the bond."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "purpose",
+            "docs": [
+              "A description of what the funds are for."
+            ],
+            "type": "string"
+          },
+          {
+            "name": "sector",
+            "docs": [
+              "The sector the funding belongs to (e.g., Healthcare, Education)."
+            ],
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "The monetary value or amount of the bond."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_redeemed",
+            "docs": [
+              "A flag to indicate if the bond has been redeemed."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GovernanceState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "voting_period",
+            "type": "i64"
+          },
+          {
+            "name": "quorum_votes",
+            "type": "u64"
+          },
+          {
+            "name": "proposal_count",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Proposal",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "proposer",
+            "type": "pubkey"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "yes_votes",
+            "type": "u64"
+          },
+          {
+            "name": "no_votes",
+            "type": "u64"
+          },
+          {
+            "name": "start_slot",
+            "type": "u64"
+          },
+          {
+            "name": "end_slot",
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "ProposalState"
+              }
+            }
+          },
+          {
+            "name": "bond_purpose",
+            "type": "string"
+          },
+          {
+            "name": "bond_sector",
+            "type": "string"
+          },
+          {
+            "name": "bond_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProposalState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Voting"
+          },
+          {
+            "name": "Succeeded"
+          },
+          {
+            "name": "Failed"
+          },
+          {
+            "name": "Executed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VerifiedUser",
+      "docs": [
+        "NEW ACCOUNT to represent a verified user."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_verified",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VoteRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proposal_id",
+            "type": "u64"
+          },
+          {
+            "name": "voter",
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ]
+}
