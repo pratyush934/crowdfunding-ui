@@ -1,5 +1,5 @@
 {
-  "address": "HbD9TyCRmTboM3QuL2h227hEhzKBfL3CTgqtohtGKP92",
+  "address": "ER1NPdo7zrjDbvnyGsfkGwnanHdcUe6B2oVuskgUa5Vz",
   "metadata": {
     "name": "governance",
     "version": "0.1.0",
@@ -9,9 +9,6 @@
   "instructions": [
     {
       "name": "add_verified_user",
-      "docs": [
-        "NEW INSTRUCTION: An admin can add a new verified user."
-      ],
       "discriminator": [
         126,
         135,
@@ -149,12 +146,7 @@
           "writable": true
         },
         {
-          "name": "proposer",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "proposal"
-          ]
+          "name": "governance_state"
         },
         {
           "name": "new_bond_account",
@@ -162,7 +154,7 @@
         },
         {
           "name": "on_chain_program",
-          "address": "6hPPwfMV5yMR6pCvg1kt2JaAT5FSRjnefuYQ74s62XLL"
+          "address": "6ongwoyXhZ119UcadKiAMyJf8adB7J9JwVpUNDD7hD5G"
         },
         {
           "name": "system_program",
@@ -173,9 +165,6 @@
     },
     {
       "name": "create_proposal",
-      "docs": [
-        "MODIFIED: Now requires the proposer to be verified."
-      ],
       "discriminator": [
         132,
         116,
@@ -286,6 +275,29 @@
         128,
         111,
         28
+      ],
+      "accounts": [
+        {
+          "name": "proposal",
+          "writable": true
+        },
+        {
+          "name": "governance_state"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "finalize_proposal",
+      "discriminator": [
+        23,
+        68,
+        51,
+        167,
+        109,
+        173,
+        187,
+        164
       ],
       "accounts": [
         {
@@ -469,6 +481,11 @@
       "code": 6007,
       "name": "UserNotVerified",
       "msg": "The user creating the proposal is not verified."
+    },
+    {
+      "code": 6008,
+      "name": "ProposalNotExecuted",
+      "msg": "This proposal has not been executed yet."
     }
   ],
   "types": [
@@ -479,37 +496,22 @@
         "fields": [
           {
             "name": "authority",
-            "docs": [
-              "The public key of the current owner/controller of the bond."
-            ],
             "type": "pubkey"
           },
           {
             "name": "purpose",
-            "docs": [
-              "A description of what the funds are for."
-            ],
             "type": "string"
           },
           {
             "name": "sector",
-            "docs": [
-              "The sector the funding belongs to (e.g., Healthcare, Education)."
-            ],
             "type": "string"
           },
           {
             "name": "amount",
-            "docs": [
-              "The monetary value or amount of the bond."
-            ],
             "type": "u64"
           },
           {
             "name": "is_redeemed",
-            "docs": [
-              "A flag to indicate if the bond has been redeemed."
-            ],
             "type": "bool"
           }
         ]
@@ -574,11 +576,7 @@
           },
           {
             "name": "state",
-            "type": {
-              "defined": {
-                "name": "ProposalState"
-              }
-            }
+            "type": "u8"
           },
           {
             "name": "bond_purpose",
@@ -596,30 +594,7 @@
       }
     },
     {
-      "name": "ProposalState",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Voting"
-          },
-          {
-            "name": "Succeeded"
-          },
-          {
-            "name": "Failed"
-          },
-          {
-            "name": "Executed"
-          }
-        ]
-      }
-    },
-    {
       "name": "VerifiedUser",
-      "docs": [
-        "NEW ACCOUNT to represent a verified user."
-      ],
       "type": {
         "kind": "struct",
         "fields": [

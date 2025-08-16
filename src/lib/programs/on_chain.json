@@ -1,5 +1,5 @@
 {
-  "address": "6hPPwfMV5yMR6pCvg1kt2JaAT5FSRjnefuYQ74s62XLL",
+  "address": "6ongwoyXhZ119UcadKiAMyJf8adB7J9JwVpUNDD7hD5G",
   "metadata": {
     "name": "on_chain",
     "version": "0.1.0",
@@ -8,11 +8,65 @@
   },
   "instructions": [
     {
-      "name": "initialize_bond",
-      "docs": [
-        "Initializes a new bond account with specified details.",
-        "This function sets up the initial state of a funding bond."
+      "name": "add_verified_user",
+      "discriminator": [
+        126,
+        135,
+        209,
+        24,
+        87,
+        111,
+        27,
+        225
       ],
+      "accounts": [
+        {
+          "name": "verified_user",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  114,
+                  105,
+                  102,
+                  105,
+                  101,
+                  100,
+                  95,
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_to_verify"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_to_verify"
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_bond",
       "discriminator": [
         135,
         182,
@@ -27,7 +81,23 @@
         {
           "name": "bond_account",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "issuer"
+              }
+            ]
+          }
         },
         {
           "name": "issuer",
@@ -56,10 +126,6 @@
     },
     {
       "name": "transfer_bond",
-      "docs": [
-        "Transfers the authority of a bond to a new owner.",
-        "Only the current authority can perform this action."
-      ],
       "discriminator": [
         0,
         46,
@@ -104,6 +170,19 @@
         187,
         64
       ]
+    },
+    {
+      "name": "VerifiedUser",
+      "discriminator": [
+        197,
+        144,
+        184,
+        72,
+        82,
+        65,
+        99,
+        144
+      ]
     }
   ],
   "types": [
@@ -114,37 +193,38 @@
         "fields": [
           {
             "name": "authority",
-            "docs": [
-              "The public key of the current owner/controller of the bond."
-            ],
             "type": "pubkey"
           },
           {
             "name": "purpose",
-            "docs": [
-              "A description of what the funds are for."
-            ],
             "type": "string"
           },
           {
             "name": "sector",
-            "docs": [
-              "The sector the funding belongs to (e.g., Healthcare, Education)."
-            ],
             "type": "string"
           },
           {
             "name": "amount",
-            "docs": [
-              "The monetary value or amount of the bond."
-            ],
             "type": "u64"
           },
           {
             "name": "is_redeemed",
-            "docs": [
-              "A flag to indicate if the bond has been redeemed."
-            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VerifiedUser",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user_pubkey",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_verified",
             "type": "bool"
           }
         ]
