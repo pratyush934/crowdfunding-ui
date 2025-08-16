@@ -1,3 +1,5 @@
+// Complete Proposals.tsx with fixed createProposalIdBuffer function
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -45,30 +47,28 @@ const isImageFile = (fileName?: string): boolean => {
   return !!fileName && /\.(jpg|jpeg|png)$/i.test(fileName);
 };
 
-// Helper function to create buffer from proposal ID
+// Fixed helper function to create buffer from proposal ID (Browser-compatible version)
 const createProposalIdBuffer = (proposalId: any): Buffer => {
+  let idNumber: number;
+
   if (typeof proposalId === "object" && proposalId.toNumber) {
-    const idNumber = proposalId.toNumber();
-    const buffer = Buffer.alloc(8);
-    buffer.writeBigUInt64LE(BigInt(idNumber), 0);
-    return buffer;
+    idNumber = proposalId.toNumber();
   } else if (typeof proposalId === "bigint") {
-    const buffer = Buffer.alloc(8);
-    buffer.writeBigUInt64LE(proposalId, 0);
-    return buffer;
+    idNumber = Number(proposalId);
   } else if (typeof proposalId === "number") {
-    const buffer = Buffer.alloc(8);
-    buffer.writeBigUInt64LE(BigInt(idNumber), 0);
-    return buffer;
+    idNumber = proposalId;
   } else {
-    const idNumber = Number(proposalId);
+    idNumber = Number(proposalId);
     if (isNaN(idNumber)) {
       throw new Error(`Invalid proposal ID: ${proposalId}`);
     }
-    const buffer = Buffer.alloc(8);
-    buffer.writeBigUInt64LE(BigInt(idNumber), 0);
-    return buffer;
   }
+
+  // Use DataView instead of buffer.writeBigUInt64LE for browser compatibility
+  const buffer = Buffer.alloc(8);
+  const view = new DataView(buffer.buffer);
+  view.setBigUint64(0, BigInt(idNumber), true); // true for little-endian
+  return buffer;
 };
 
 export const ProposalCard = ({
@@ -128,7 +128,7 @@ export const ProposalCard = ({
           bondAccountPda: bondAccountPda.toString(),
         }));
 
-        // Derive vote record PDA
+        // Derive vote record PDA using the fixed buffer function
         const [voteRecordPda] = PublicKey.findProgramAddressSync(
           [
             Buffer.from("vote"),
@@ -186,6 +186,14 @@ export const ProposalCard = ({
   ]);
 
   const handleVote = async (voteYes: boolean) => {
+    // Prevent double-clicking
+    if (isVoting) {
+      toast.error("Vote already in progress", {
+        description: "Please wait for the current transaction to complete.",
+      });
+      return;
+    }
+
     if (!connected || !publicKey || !governanceProgram) {
       toast.error("Please connect your wallet to vote.");
       return;
@@ -193,11 +201,6 @@ export const ProposalCard = ({
 
     if (!isBondHolder) {
       toast.error("You must be a bond holder to vote.");
-      return;
-    }
-
-    if (hasVoted) {
-      toast.error("You have already voted on this proposal.");
       return;
     }
 
@@ -212,9 +215,12 @@ export const ProposalCard = ({
     }
 
     setIsVoting(true);
-    const toastId = toast.loading(`Casting ${voteYes ? "Yes" : "No"} vote...`);
+    const toastId = toast.loading(
+      `Preparing to cast ${voteYes ? "YES" : "NO"} vote...`
+    );
 
     try {
+      // Re-derive PDAs to ensure they're correct
       const [voteRecordPda] = PublicKey.findProgramAddressSync(
         [
           Buffer.from("vote"),
@@ -229,10 +235,55 @@ export const ProposalCard = ({
         new PublicKey("6ongwoyXhZ119UcadKiAMyJf8adB7J9JwVpUNDD7hD5G")
       );
 
+      const proposalPda =
+        proposal.publicKey ||
+        PublicKey.findProgramAddressSync(
+          [Buffer.from("proposal"), createProposalIdBuffer(proposal.id)],
+          governanceProgram.programId
+        )[0];
+
+      toast.loading("Checking voting eligibility...", { id: toastId });
+
+      // CRITICAL: Double-check if vote record already exists
+      const connection = governanceProgram.provider.connection;
+      const voteRecordAccount = await connection.getAccountInfo(voteRecordPda);
+
+      if (voteRecordAccount) {
+        setHasVoted(true); // Update local state
+        toast.error("You have already voted!", {
+          id: toastId,
+          description: "Your vote has already been recorded for this proposal.",
+        });
+        return;
+      }
+
+      // Verify other required accounts
+      const [proposalAccount, bondAccount] = await Promise.all([
+        connection.getAccountInfo(proposalPda),
+        connection.getAccountInfo(bondAccountPda),
+      ]);
+
+      if (!proposalAccount) {
+        toast.error("Proposal not found!", { id: toastId });
+        return;
+      }
+
+      if (!bondAccount) {
+        toast.error("Bond account not found - you are not a bond holder!", {
+          id: toastId,
+        });
+        return;
+      }
+
+      toast.loading(
+        `Submitting ${voteYes ? "YES" : "NO"} vote to blockchain...`,
+        { id: toastId }
+      );
+
       const tx = await governanceProgram.methods
         .castVote(voteYes)
         .accounts({
-          proposal: proposal.publicKey,
+          proposal: proposalPda,
           voter: publicKey,
           voterBondAccount: bondAccountPda,
           voteRecord: voteRecordPda,
@@ -240,19 +291,46 @@ export const ProposalCard = ({
         })
         .rpc();
 
-      toast.success(`Successfully cast ${voteYes ? "Yes" : "No"} vote!`, {
+      toast.success(`🎉 ${voteYes ? "YES" : "NO"} vote cast successfully!`, {
         id: toastId,
-        description: <p>Transaction: {tx}</p>,
+        description: (
+          <div className="space-y-1">
+            <p className="font-medium">Your vote has been recorded!</p>
+            <p className="text-xs opacity-75">
+              Transaction: {tx.slice(0, 8)}...{tx.slice(-8)}
+            </p>
+          </div>
+        ),
       });
+
+      // Update local state immediately
+      setHasVoted(true);
 
       if (onVoteSuccess) {
         onVoteSuccess();
       }
     } catch (err: any) {
       console.error("Error casting vote:", err);
-      toast.error("Failed to cast vote.", {
+
+      let errorMessage = "Failed to cast vote";
+      let errorDescription = err.message || "Unknown error";
+
+      if (err.message?.includes("already in use")) {
+        errorMessage = "Already Voted";
+        errorDescription = "You have already voted on this proposal.";
+        setHasVoted(true); // Update local state
+      } else if (err.message?.includes("custom program error: 0x0")) {
+        errorMessage = "Transaction Failed";
+        errorDescription =
+          "The blockchain rejected the vote. You may have already voted.";
+      } else if (err.message?.includes("User rejected")) {
+        errorMessage = "Transaction Cancelled";
+        errorDescription = "You cancelled the transaction in your wallet.";
+      }
+
+      toast.error(errorMessage, {
         id: toastId,
-        description: err.message || "An unknown error occurred.",
+        description: errorDescription,
       });
     } finally {
       setIsVoting(false);
@@ -316,6 +394,19 @@ export const ProposalCard = ({
       );
     }
 
+    if (
+      isBondHolder === null ||
+      hasVoted === null ||
+      isInVotingPeriod === null
+    ) {
+      return (
+        <div className="text-sm text-muted-foreground flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+          Checking voting eligibility...
+        </div>
+      );
+    }
+
     if (!isBondHolder) {
       return (
         <div className="text-sm text-red-500 flex items-center gap-2">
@@ -327,9 +418,14 @@ export const ProposalCard = ({
 
     if (hasVoted) {
       return (
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <Check className="h-4 w-4" />
-          You have already voted on this proposal.
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="text-sm text-green-700 flex items-center gap-2 font-medium">
+            <Check className="h-4 w-4" />✅ You have already voted on this
+            proposal
+          </div>
+          <div className="text-xs text-green-600 mt-1">
+            Your vote has been recorded on the blockchain
+          </div>
         </div>
       );
     }
@@ -353,24 +449,73 @@ export const ProposalCard = ({
       );
     }
 
+    // Show voting buttons with enhanced feedback
     return (
-      <div className="flex gap-2 w-full">
-        <Button
-          size="sm"
-          disabled={isVoting}
-          onClick={() => handleVote(true)}
-          className="flex-1 bg-green-600 hover:bg-green-700"
-        >
-          Vote Yes
-        </Button>
-        <Button
-          size="sm"
-          disabled={isVoting}
-          onClick={() => handleVote(false)}
-          className="flex-1 bg-red-600 hover:bg-red-700"
-        >
-          Vote No
-        </Button>
+      <div className="space-y-3">
+        {/* Warning about voting period */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div className="text-sm text-yellow-700 flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            <span className="font-medium">Vote quickly!</span>
+          </div>
+          <div className="text-xs text-yellow-600 mt-1">
+            Voting period is only ~40 seconds. Click once and wait for
+            confirmation.
+          </div>
+        </div>
+
+        {/* Voting buttons */}
+        <div className="flex gap-2 w-full">
+          <Button
+            size="sm"
+            disabled={isVoting}
+            onClick={() => handleVote(true)}
+            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400"
+          >
+            {isVoting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              <>
+                <Check className="mr-1 h-4 w-4" />
+                Vote Yes
+              </>
+            )}
+          </Button>
+
+          <Button
+            size="sm"
+            disabled={isVoting}
+            onClick={() => handleVote(false)}
+            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400"
+          >
+            {isVoting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              <>
+                <X className="mr-1 h-4 w-4" />
+                Vote No
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Additional feedback during voting */}
+        {isVoting && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="text-sm text-blue-700 flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+              <span>
+                Transaction in progress... Please wait and don't click again!
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -436,19 +581,6 @@ export const ProposalCard = ({
                 File: {proposal.fileName}
               </div>
             )}
-
-            {isImageFile(proposal.fileName) && !imageError && (
-              <div className="mt-2">
-                <Image
-                  src={proposal.ipfsUrl}
-                  alt="Proof of Intent Preview"
-                  width={200}
-                  height={150}
-                  className="object-cover rounded border max-w-full h-auto"
-                  onError={() => setImageError(true)}
-                />
-              </div>
-            )}
           </div>
         )}
 
@@ -459,6 +591,13 @@ export const ProposalCard = ({
           </div>
         )}
       </CardContent>
+
+      {/* Modification: Add voting period warning */}
+      {/* Reason: Voting period is only 100 slots (~40 seconds), so users must vote immediately */}
+      <div className="text-sm text-yellow-600 flex items-center gap-2">
+        <Clock className="h-4 w-4" />
+        <span>Voting period is short (~40 seconds). Vote immediately!</span>
+      </div>
 
       <CardFooter className="flex flex-col gap-3 pt-4 border-t">
         {renderVotingSection()}

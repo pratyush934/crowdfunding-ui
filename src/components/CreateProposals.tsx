@@ -143,6 +143,8 @@ export function CreateProposalForm() {
     return buffer;
   };
 
+  // Enhanced handleSubmit function with verification check
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -159,12 +161,57 @@ export function CreateProposalForm() {
     }
 
     setIsLoading(true);
-    const toastId = toast.loading("Submitting proposal...");
+    const toastId = toast.loading("Checking verification status...");
 
     try {
+      // First, check if the user is verified
+      const [verifiedUserPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("verified_user"), publicKey.toBuffer()],
+        governanceProgram.programId // Use governance program ID, not onchain program ID
+      );
+
+      // Check if verified user account exists
+      const verifiedUserAccount =
+        await governanceProgram.provider.connection.getAccountInfo(
+          verifiedUserPda
+        );
+
+      if (!verifiedUserAccount) {
+        toast.error("User verification required", {
+          id: toastId,
+          description:
+            "Your wallet needs to be verified by an admin before you can create proposals. Please contact the administrator.",
+        });
+        return;
+      }
+
+      // Try to fetch the verified user data to ensure it's properly initialized
+      try {
+        const verifiedUserData =
+          await governanceProgram.account.verifiedUser.fetch(verifiedUserPda);
+        if (!verifiedUserData.isVerified) {
+          toast.error("User not verified", {
+            id: toastId,
+            description:
+              "Your account exists but is not marked as verified. Please contact the administrator.",
+          });
+          return;
+        }
+      } catch (fetchError) {
+        console.error("Error fetching verified user data:", fetchError);
+        toast.error("Verification check failed", {
+          id: toastId,
+          description:
+            "Unable to verify user status. Please try again or contact support.",
+        });
+        return;
+      }
+
+      toast.loading("Submitting proposal...", { id: toastId });
+
       // Fetch governance state to get proposal count
       const [govState] = PublicKey.findProgramAddressSync(
-        [Buffer.from("governance")],
+        [Buffer.from("governance_state")],
         governanceProgram.programId
       );
 
@@ -179,26 +226,17 @@ export function CreateProposalForm() {
         governanceProgram.programId
       );
 
-      // Derive verified user PDA
-      const [verifiedUserPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("verified_user"), publicKey.toBuffer()],
-        new PublicKey("6ongwoyXhZ119UcadKiAMyJf8adB7J9JwVpUNDD7hD5G")
-      );
-
-      // Modification: Set endSlot dynamically based on current slot
-      // Reason: Static endSlot (100) caused voting period to expire too quickly
-      // New approach: Use current slot + 10,000 (~100 seconds on localnet) for sufficient voting time
       const currentSlot = await governanceProgram.provider.connection.getSlot();
-      const votingPeriod = 10000; // Adjustable, ~100 seconds on localnet
+      const votingPeriod = 100000; // ~400 seconds on localnet
       const endSlot = new BN(currentSlot + votingPeriod);
 
+      // Create the proposal
       const tx = await governanceProgram.methods
         .createProposal(
           description,
           bondPurpose,
           bondSector,
-          new BN(bondAmount),
-          endSlot
+          new BN(bondAmount)
         )
         .accounts({
           governanceState: govState,
@@ -243,9 +281,24 @@ export function CreateProposalForm() {
       router.push("/proposals");
     } catch (err: any) {
       console.error("Error submitting proposal:", err);
-      toast.error("Failed to submit proposal.", {
+
+      let errorMessage = "Failed to submit proposal.";
+      let errorDescription = err.message || "An unknown error occurred.";
+
+      // Provide specific error messages based on the error
+      if (err.message?.includes("AccountNotInitialized")) {
+        errorMessage = "User verification required";
+        errorDescription =
+          "Your wallet needs to be verified by an admin before you can create proposals. Please contact the administrator.";
+      } else if (err.message?.includes("UserNotVerified")) {
+        errorMessage = "User not verified";
+        errorDescription =
+          "Your account is not marked as verified. Please contact the administrator.";
+      }
+
+      toast.error(errorMessage, {
         id: toastId,
-        description: err.message || "An unknown error occurred.",
+        description: errorDescription,
       });
     } finally {
       setIsLoading(false);

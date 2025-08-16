@@ -12,7 +12,7 @@ function createProposalIdBuffer(proposalId) {
 }
 
 // Derive PDA for proposalId (try 0, 1, etc.)
-const proposalId = 0; // Adjust based on your proposal count
+const proposalId = 5; // Adjust based on your proposal count
 const proposalBuffer = createProposalIdBuffer(proposalId);
 const [proposalPda] = PublicKey.findProgramAddressSync(
   [Buffer.from("proposal"), proposalBuffer],
