@@ -1,11 +1,30 @@
-// Complete Proposals.tsx with fixed createProposalIdBuffer function
+// Complete Proposals.tsx with enhanced UI and debug alerts
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useAppStore } from "@/store";
 import { ProposalAccount } from "@/hooks/useProposals";
+import { useAppStore } from "@/store";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  Activity,
+  AlertCircle,
+  Check,
+  CheckCircle,
+  ExternalLink,
+  File,
+  Hourglass,
+  Info,
+  Rocket,
+  Timer,
+  Vote,
+  Wallet,
+  X,
+  XCircle
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -15,21 +34,12 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Progress } from "./ui/progress";
 import {
-  Users,
-  Check,
-  X,
-  Hourglass,
-  Rocket,
-  File,
-  ExternalLink,
-  Clock,
-  AlertCircle,
-} from "lucide-react";
-import { toast } from "sonner";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
-import Image from "next/image";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
+import { Progress } from "./ui/progress";
 
 // Define the props that our component will accept
 interface ProposalCardProps {
@@ -85,6 +95,7 @@ export const ProposalCard = ({
   const [isInVotingPeriod, setIsInVotingPeriod] = useState<boolean | null>(
     null
   );
+  const [showDebug, setShowDebug] = useState(false);
 
   const state = getProposalState(proposal.state);
   const yesVotes = proposal.yesVotes.toNumber();
@@ -344,7 +355,7 @@ export const ProposalCard = ({
         return (
           <Badge
             variant="outline"
-            className="text-yellow-500 border-yellow-500/50"
+            className="text-yellow-600 border-yellow-500/50 bg-yellow-50"
           >
             <Hourglass className="mr-1 h-3 w-3" />
             Voting
@@ -354,7 +365,7 @@ export const ProposalCard = ({
         return (
           <Badge
             variant="outline"
-            className="text-green-500 border-green-500/50"
+            className="text-green-600 border-green-500/50 bg-green-50"
           >
             <Check className="mr-1 h-3 w-3" />
             Succeeded
@@ -362,7 +373,10 @@ export const ProposalCard = ({
         );
       case "executed":
         return (
-          <Badge variant="outline" className="text-blue-500 border-blue-500/50">
+          <Badge
+            variant="outline"
+            className="text-blue-600 border-blue-500/50 bg-blue-50"
+          >
             <Rocket className="mr-1 h-3 w-3" />
             Executed
           </Badge>
@@ -384,13 +398,18 @@ export const ProposalCard = ({
     }
   };
 
-  const renderVotingSection = () => {
+  const renderStatusAlert = () => {
     if (!connected) {
       return (
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
-          Please connect your wallet to vote.
-        </div>
+        <Alert className="border-orange-200 bg-orange-50">
+          <Wallet className="h-4 w-4 text-orange-600" />
+          <AlertTitle className="text-orange-800">
+            Wallet Not Connected
+          </AlertTitle>
+          <AlertDescription className="text-orange-700">
+            Connect your wallet to participate in voting
+          </AlertDescription>
+        </Alert>
       );
     }
 
@@ -400,121 +419,159 @@ export const ProposalCard = ({
       isInVotingPeriod === null
     ) {
       return (
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-          Checking voting eligibility...
-        </div>
+        <Alert className="border-blue-200 bg-blue-50">
+          <Activity className="h-4 w-4 text-blue-600 animate-pulse" />
+          <AlertTitle className="text-blue-800">Checking Status</AlertTitle>
+          <AlertDescription className="text-blue-700">
+            Verifying your voting eligibility...
+          </AlertDescription>
+        </Alert>
       );
     }
 
     if (!isBondHolder) {
       return (
-        <div className="text-sm text-red-500 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
-          You must be a bond holder to vote.
-        </div>
+        <Alert className="border-red-200 bg-red-50">
+          <XCircle className="h-4 w-4 text-red-600" />
+          <AlertTitle className="text-red-800">Not Eligible</AlertTitle>
+          <AlertDescription className="text-red-700">
+            You must be a bond holder to vote on proposals
+          </AlertDescription>
+        </Alert>
       );
     }
 
     if (hasVoted) {
       return (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <div className="text-sm text-green-700 flex items-center gap-2 font-medium">
-            <Check className="h-4 w-4" />✅ You have already voted on this
-            proposal
-          </div>
-          <div className="text-xs text-green-600 mt-1">
-            Your vote has been recorded on the blockchain
-          </div>
-        </div>
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Vote Recorded</AlertTitle>
+          <AlertDescription className="text-green-700">
+            Your vote has been successfully recorded on the blockchain
+          </AlertDescription>
+        </Alert>
       );
     }
 
     if (state !== "voting") {
       return (
-        <div className="text-sm text-red-500 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
-          Proposal state is "{state}" - not in voting period.
-        </div>
+        <Alert className="border-gray-200 bg-gray-50">
+          <AlertCircle className="h-4 w-4 text-gray-600" />
+          <AlertTitle className="text-gray-800">Voting Closed</AlertTitle>
+          <AlertDescription className="text-gray-700">
+            This proposal is in "{state}" state - voting is not active
+          </AlertDescription>
+        </Alert>
       );
     }
 
     if (!isInVotingPeriod) {
+      const slotsRemaining = debugInfo.endSlot - debugInfo.currentSlot;
       return (
-        <div className="text-sm text-red-500 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
-          Voting period has ended (current slot: {debugInfo.currentSlot}, start:{" "}
-          {debugInfo.startSlot}, end: {debugInfo.endSlot}).
-        </div>
+        <Alert className="border-red-200 bg-red-50">
+          <Timer className="h-4 w-4 text-red-600" />
+          <AlertTitle className="text-red-800">Voting Period Ended</AlertTitle>
+          <AlertDescription className="text-red-700">
+            Voting ended {Math.abs(slotsRemaining)} slots ago
+            <div className="text-xs mt-1 opacity-75">
+              Period: Slot {debugInfo.startSlot} - {debugInfo.endSlot} (Current:{" "}
+              {debugInfo.currentSlot})
+            </div>
+          </AlertDescription>
+        </Alert>
       );
     }
 
-    // Show voting buttons with enhanced feedback
+    // Show voting is active with time warning
+    const slotsRemaining = debugInfo.endSlot - debugInfo.currentSlot;
+    const timeRemaining = slotsRemaining * 0.4; // ~0.4 seconds per slot
+
     return (
-      <div className="space-y-3">
-        {/* Warning about voting period */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          <div className="text-sm text-yellow-700 flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            <span className="font-medium">Vote quickly!</span>
-          </div>
-          <div className="text-xs text-yellow-600 mt-1">
-            Voting period is only ~40 seconds. Click once and wait for
-            confirmation.
-          </div>
-        </div>
-
-        {/* Voting buttons */}
-        <div className="flex gap-2 w-full">
-          <Button
-            size="sm"
-            disabled={isVoting}
-            onClick={() => handleVote(true)}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400"
+      <Alert className="border-yellow-200 bg-yellow-50">
+        <Timer className="h-4 w-4 text-yellow-600" />
+        <AlertTitle className="text-yellow-800 flex items-center gap-2">
+          Voting Active
+          <Badge
+            variant="outline"
+            className="text-xs bg-yellow-100 border-yellow-300"
           >
-            {isVoting ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Processing...
-              </div>
-            ) : (
-              <>
-                <Check className="mr-1 h-4 w-4" />
-                Vote Yes
-              </>
-            )}
-          </Button>
-
-          <Button
-            size="sm"
-            disabled={isVoting}
-            onClick={() => handleVote(false)}
-            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400"
-          >
-            {isVoting ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Processing...
-              </div>
-            ) : (
-              <>
-                <X className="mr-1 h-4 w-4" />
-                Vote No
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Additional feedback during voting */}
-        {isVoting && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="text-sm text-blue-700 flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-              <span>
-                Transaction in progress... Please wait and don't click again!
-              </span>
+            {slotsRemaining} slots left
+          </Badge>
+        </AlertTitle>
+        <AlertDescription className="text-yellow-700">
+          <div className="flex items-center justify-between">
+            <span>
+              Vote quickly! ~{Math.max(0, Math.round(timeRemaining))}s remaining
+            </span>
+            <div className="text-xs opacity-75">
+              Ends at slot {debugInfo.endSlot}
             </div>
           </div>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
+  const renderVotingSection = () => {
+    if (state !== "voting" || !isInVotingPeriod || !isBondHolder || hasVoted) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-3">
+        {/* Voting buttons */}
+        <div className="flex gap-3 w-full">
+          <Button
+            size="lg"
+            disabled={isVoting}
+            onClick={() => handleVote(true)}
+            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 h-12 font-semibold"
+          >
+            {isVoting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5" />
+                Vote YES
+              </div>
+            )}
+          </Button>
+
+          <Button
+            size="lg"
+            disabled={isVoting}
+            onClick={() => handleVote(false)}
+            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 h-12 font-semibold"
+          >
+            {isVoting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <XCircle className="h-5 w-5" />
+                Vote NO
+              </div>
+            )}
+          </Button>
+        </div>
+
+        {/* Processing feedback */}
+        {isVoting && (
+          <Alert className="border-blue-200 bg-blue-50">
+            <Activity className="h-4 w-4 text-blue-600 animate-pulse" />
+            <AlertTitle className="text-blue-800">
+              Transaction in Progress
+            </AlertTitle>
+            <AlertDescription className="text-blue-700">
+              Please wait and don't click again! Your vote is being recorded on
+              the blockchain.
+            </AlertDescription>
+          </Alert>
         )}
       </div>
     );
@@ -522,85 +579,140 @@ export const ProposalCard = ({
 
   return (
     <Card className="flex flex-col h-full hover:border-primary/50 transition-colors">
-      <CardHeader>
+      <CardHeader className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm font-mono text-muted-foreground">
             Proposal #{proposal.id.toString()}
           </span>
           {renderStateBadge()}
         </div>
-        <CardTitle className="pt-2">{proposal.description}</CardTitle>
+        <CardTitle className="text-lg leading-tight">
+          {proposal.description}
+        </CardTitle>
+
+        {/* Status Alert */}
+        {renderStatusAlert()}
       </CardHeader>
+
       <CardContent className="flex-grow space-y-4">
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium text-green-600">
+        {/* Voting Progress */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+              <Vote className="h-3 w-3" />
               Yes ({yesVotes.toLocaleString()})
             </span>
-            <span className="text-sm font-medium text-red-600">
+            <span className="text-sm font-medium text-red-600 flex items-center gap-1">
+              <Vote className="h-3 w-3" />
               No ({noVotes.toLocaleString()})
             </span>
           </div>
           <Progress value={yesPercentage} className="h-3" />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{yesPercentage.toFixed(1)}% Yes</span>
+            <span>{totalVotes.toLocaleString()} total votes</span>
             <span>{(100 - yesPercentage).toFixed(1)}% No</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center">
-            <Users className="mr-2 h-4 w-4" />
-            <span>{totalVotes.toLocaleString()} total votes</span>
-          </div>
-          {state === "voting" && (
-            <div className="flex items-center text-yellow-600">
-              <Clock className="mr-1 h-3 w-3" />
-              <span className="text-xs">Voting Active</span>
-            </div>
-          )}
-        </div>
-
+        {/* IPFS File */}
         {proposal.ipfsUrl && (
-          <div className="text-sm border rounded-lg p-3 bg-muted/30">
-            <div className="flex items-center gap-2 mb-2">
-              <File className="h-4 w-4" />
-              <span className="font-medium">Proof of Intent</span>
-              <a
-                href={proposal.ipfsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto text-blue-600 hover:text-blue-800 flex items-center gap-1"
+          <Alert className="border-blue-200 bg-blue-50">
+            <File className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-800 flex items-center justify-between">
+              Proof of Intent
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-1 text-blue-600 hover:text-blue-800"
+                onClick={() => window.open(proposal.ipfsUrl, "_blank")}
               >
-                View <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-
-            {proposal.fileName && (
-              <div className="text-xs text-muted-foreground mb-2">
-                File: {proposal.fileName}
-              </div>
-            )}
-          </div>
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </AlertTitle>
+            <AlertDescription className="text-blue-700">
+              {proposal.fileName ? (
+                <span className="font-mono text-xs">{proposal.fileName}</span>
+              ) : (
+                <span>Supporting documentation available on IPFS</span>
+              )}
+            </AlertDescription>
+          </Alert>
         )}
 
-        {/* Debug Info for Development */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="text-xs text-muted-foreground mt-4">
-            <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-          </div>
-        )}
+        {/* Debug Information (Collapsible) */}
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-between text-xs text-muted-foreground hover:text-foreground"
+            >
+              <span className="flex items-center gap-2">
+                <Info className="h-3 w-3" />
+                Technical Details
+              </span>
+              <span className="text-xs">
+                Click to {showDebug ? "hide" : "show"}
+              </span>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2">
+            <Alert className="border-gray-200 bg-gray-50">
+              <Activity className="h-4 w-4 text-gray-600" />
+              <AlertTitle className="text-gray-800 text-sm">
+                Blockchain Status
+              </AlertTitle>
+              <AlertDescription className="text-gray-700">
+                <div className="space-y-1 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span>Bond Account:</span>
+                    <span
+                      className={
+                        isBondHolder ? "text-green-600" : "text-red-600"
+                      }
+                    >
+                      {debugInfo.bondAccount}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Has Voted:</span>
+                    <span
+                      className={hasVoted ? "text-blue-600" : "text-gray-600"}
+                    >
+                      {hasVoted ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Current Slot:</span>
+                    <span>{debugInfo.currentSlot}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Voting Period:</span>
+                    <span>
+                      {debugInfo.startSlot} - {debugInfo.endSlot}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>In Period:</span>
+                    <span
+                      className={
+                        isInVotingPeriod ? "text-green-600" : "text-red-600"
+                      }
+                    >
+                      {isInVotingPeriod ? "Yes" : "No"}
+                    </span>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
-
-      {/* Modification: Add voting period warning */}
-      {/* Reason: Voting period is only 100 slots (~40 seconds), so users must vote immediately */}
-      <div className="text-sm text-yellow-600 flex items-center gap-2">
-        <Clock className="h-4 w-4" />
-        <span>Voting period is short (~40 seconds). Vote immediately!</span>
-      </div>
 
       <CardFooter className="flex flex-col gap-3 pt-4 border-t">
         {renderVotingSection()}
+
         <div className="flex gap-2 w-full">
           <Button variant="outline" size="sm" className="flex-1">
             View Details
